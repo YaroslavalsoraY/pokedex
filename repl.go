@@ -8,7 +8,32 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	pokecache "github.com/YaroslavalsoraY/pokedex/internal"
 )
+
+type cliCommand struct {
+	name        string
+	decsription string
+	callback    func(c *config) error
+}
+
+type config struct {
+	next     *string
+	previous *string
+	cache    *pokecache.Cache
+}
+
+type JSONresp struct {
+	Count    int     `json:"count"`
+	Next     *string `json:"next"`
+	Previous *string `json:"previous"`
+	Results  []struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	} `json:"results"`
+}
+
 
 func cleanInput(text string) []string {
 	var temp_result, result []string
@@ -41,28 +66,29 @@ func commandHelp(c *config) error {
 }
 
 func commandMap(c *config) error {
-	type JSONresp struct {
-		Count    int     `json:"count"`
-		Next     *string `json:"next"`
-		Previous *string `json:"previous"`
-		Results  []struct {
-			Name string `json:"name"`
-			URL  string `json:"url"`
-		} `json:"results"`
-	}
-	resp, err := http.Get(*c.next)
-	if err != nil {
-		return errors.New("error with connection")
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return errors.New("problem with reading")
-	}
 	locations := JSONresp{}
-	defer resp.Body.Close()
-	err = json.Unmarshal(body, &locations)
-	if err != nil {
-		return errors.New("Unmarshalling error")
+	_, ok := c.cache.Cached[*c.next]
+	if 	!ok {
+		resp, err := http.Get(*c.next)
+		if err != nil {
+			return errors.New("error with connection")
+		}
+		body, err := io.ReadAll(resp.Body)
+		c.cache.Add(*c.next, body)
+		if err != nil {
+			return errors.New("problem with reading")
+		}
+		err = json.Unmarshal(body, &locations)
+		if err != nil {
+			return errors.New("Unmarshalling error")
+		}
+		defer resp.Body.Close()
+	} else {
+		body := c.cache.Cached[*c.next].Val
+		err := json.Unmarshal(body, &locations)
+		if err != nil {
+			return errors.New("Unmarshalling error")
+		}
 	}
 	for _, loc := range locations.Results {
 		fmt.Println(loc.Name)
@@ -77,29 +103,29 @@ func commandMapb(c *config) error {
 		fmt.Println("you're on the first page")
 		return nil
 	}
-
-	type JSONresp struct {
-		Count    int     `json:"count"`
-		Next     *string `json:"next"`
-		Previous *string `json:"previous"`
-		Results  []struct {
-			Name string `json:"name"`
-			URL  string `json:"url"`
-		} `json:"results"`
-	}
-	resp, err := http.Get(*c.previous)
-	if err != nil {
-		return errors.New("error with connection")
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return errors.New("problem with reading")
-	}
 	locations := JSONresp{}
-	defer resp.Body.Close()
-	err = json.Unmarshal(body, &locations)
-	if err != nil {
-		return errors.New("Unmarshalling error")
+	_, ok := c.cache.Cached[*c.previous]
+	if 	!ok {
+		resp, err := http.Get(*c.previous)
+		if err != nil {
+			return errors.New("error with connection")
+		}
+		body, err := io.ReadAll(resp.Body)
+		c.cache.Add(*c.previous, body)
+		if err != nil {
+			return errors.New("problem with reading")
+		}
+		err = json.Unmarshal(body, &locations)
+		if err != nil {
+			return errors.New("Unmarshalling error")
+		}
+		defer resp.Body.Close()
+	} else {
+		body := c.cache.Cached[*c.previous].Val
+		err := json.Unmarshal(body, &locations)
+		if err != nil {
+			return errors.New("Unmarshalling error")
+		}
 	}
 	for _, loc := range locations.Results {
 		fmt.Println(loc.Name)
@@ -133,15 +159,4 @@ func getCommands() map[string]cliCommand {
 			callback: commandMapb,
 		},
 	}
-}
-
-type cliCommand struct {
-	name        string
-	decsription string
-	callback    func(c *config) error
-}
-
-type config struct {
-	next     *string
-	previous *string
 }
