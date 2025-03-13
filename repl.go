@@ -15,7 +15,7 @@ import (
 type cliCommand struct {
 	name        string
 	decsription string
-	callback    func(c *config) error
+	callback    func(c *config, param string) error
 }
 
 type config struct {
@@ -34,6 +34,58 @@ type JSONresp struct {
 	} `json:"results"`
 }
 
+type AreaLocation struct {
+	EncounterMethodRates []struct {
+		EncounterMethod struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		} `json:"encounter_method"`
+		VersionDetails []struct {
+			Rate    int `json:"rate"`
+			Version struct {
+				Name string `json:"name"`
+				URL  string `json:"url"`
+			} `json:"version"`
+		} `json:"version_details"`
+	} `json:"encounter_method_rates"`
+	GameIndex int `json:"game_index"`
+	ID        int `json:"id"`
+	Location  struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	} `json:"location"`
+	Name  string `json:"name"`
+	Names []struct {
+		Language struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		} `json:"language"`
+		Name string `json:"name"`
+	} `json:"names"`
+	PokemonEncounters []struct {
+		Pokemon struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		} `json:"pokemon"`
+		VersionDetails []struct {
+			EncounterDetails []struct {
+				Chance          int   `json:"chance"`
+				ConditionValues []any `json:"condition_values"`
+				MaxLevel        int   `json:"max_level"`
+				Method          struct {
+					Name string `json:"name"`
+					URL  string `json:"url"`
+				} `json:"method"`
+				MinLevel int `json:"min_level"`
+			} `json:"encounter_details"`
+			MaxChance int `json:"max_chance"`
+			Version   struct {
+				Name string `json:"name"`
+				URL  string `json:"url"`
+			} `json:"version"`
+		} `json:"version_details"`
+	} `json:"pokemon_encounters"`
+}
 
 func cleanInput(text string) []string {
 	var temp_result, result []string
@@ -50,13 +102,13 @@ func cleanInput(text string) []string {
 	return result
 }
 
-func commandExit(c *config) error {
+func commandExit(c *config, param string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(c *config) error {
+func commandHelp(c *config, param string) error {
 	commandsDB := getCommands()
 	fmt.Print("Welcome to the Pokedex!\nUsage:\n\n")
 	for _, v := range commandsDB {
@@ -65,10 +117,10 @@ func commandHelp(c *config) error {
 	return nil
 }
 
-func commandMap(c *config) error {
+func commandMap(c *config, param string) error {
 	locations := JSONresp{}
 	_, ok := c.cache.Cached[*c.next]
-	if 	!ok {
+	if !ok {
 		resp, err := http.Get(*c.next)
 		if err != nil {
 			return errors.New("error with connection")
@@ -98,14 +150,14 @@ func commandMap(c *config) error {
 	return nil
 }
 
-func commandMapb(c *config) error {
+func commandMapb(c *config, param string) error {
 	if c.previous == nil {
 		fmt.Println("you're on the first page")
 		return nil
 	}
 	locations := JSONresp{}
 	_, ok := c.cache.Cached[*c.previous]
-	if 	!ok {
+	if !ok {
 		resp, err := http.Get(*c.previous)
 		if err != nil {
 			return errors.New("error with connection")
@@ -136,6 +188,42 @@ func commandMapb(c *config) error {
 
 }
 
+func commandExplore(c *config, area string) error {
+	if area == "" {
+		fmt.Println("Need argument 'location-area'")
+		return nil
+	}
+	url :=  "https://pokeapi.co/api/v2/location-area/" + area
+	pokemons := AreaLocation{}
+	_, ok := c.cache.Cached[url]
+	if !ok {
+		resp, err := http.Get(url)
+		if err != nil {
+			return errors.New("error with connection")
+		}
+		body, err := io.ReadAll(resp.Body)
+		c.cache.Add(url, body)
+		if err != nil {
+			return errors.New("problem with reading")
+		}
+		err = json.Unmarshal(body, &pokemons)
+		if err != nil {
+			return errors.New("Unmarshalling error")
+		}
+		defer resp.Body.Close()
+	} else {
+		body := c.cache.Cached[url].Val
+		err := json.Unmarshal(body, &pokemons)
+		if err != nil {
+			return errors.New("Unmarshalling error")
+		}
+	}
+	for _, pok := range pokemons.PokemonEncounters {
+		fmt.Println(pok.Pokemon.Name)
+	}
+	return nil
+}
+
 func getCommands() map[string]cliCommand {
 	return map[string]cliCommand{
 		"exit": {
@@ -154,9 +242,14 @@ func getCommands() map[string]cliCommand {
 			callback:    commandMap,
 		},
 		"mapb": {
-			name: "mapb",
+			name:        "mapb",
 			decsription: "Show previos locations",
-			callback: commandMapb,
+			callback:    commandMapb,
+		},
+		"explore": {
+			name:        "explore",
+			decsription: "Show pokemons on 'location'",
+			callback:    commandExplore,
 		},
 	}
 }

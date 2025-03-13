@@ -1,7 +1,6 @@
 package pokecache
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -62,7 +61,6 @@ func (c *Cache) reapLoop() {
 
 		for k, v := range c.Cached {
 			if v.CreatedAt.Sub(time.Now()) * time.Second > c.Interval * time.Second { 
-				fmt.Println("deleted")
 				c.Lock()
 				delete(c.Cached, k)
 				c.Unlock()
