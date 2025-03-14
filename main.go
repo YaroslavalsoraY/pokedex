@@ -14,6 +14,7 @@ func main() {
 		next:     &first_adress,
 		previous: nil,
 		cache:    pokecache.NewCache(5),
+		pokemons: map[string]PokemonInf{},
 	}
 	commandsDB := getCommands()
 	fmt.Print("Pokedex > ")

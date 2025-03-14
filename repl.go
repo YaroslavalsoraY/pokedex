@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -22,6 +23,7 @@ type config struct {
 	next     *string
 	previous *string
 	cache    *pokecache.Cache
+	pokemons map[string]PokemonInf
 }
 
 type JSONresp struct {
@@ -32,6 +34,14 @@ type JSONresp struct {
 		Name string `json:"name"`
 		URL  string `json:"url"`
 	} `json:"results"`
+}
+
+type PokemonInf struct {
+	BaseExperience int `json:"base_experience"`
+	Forms          []struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	} `json:"forms"`
 }
 
 type AreaLocation struct {
@@ -193,7 +203,8 @@ func commandExplore(c *config, area string) error {
 		fmt.Println("Need argument 'location-area'")
 		return nil
 	}
-	url :=  "https://pokeapi.co/api/v2/location-area/" + area
+	fmt.Println("Exploring " + area + "...")
+	url := "https://pokeapi.co/api/v2/location-area/" + area
 	pokemons := AreaLocation{}
 	_, ok := c.cache.Cached[url]
 	if !ok {
@@ -224,6 +235,51 @@ func commandExplore(c *config, area string) error {
 	return nil
 }
 
+func commandCatch(c *config, pokemon string) error {
+	if pokemon == "" {
+		fmt.Println("Need argument 'pokemon'")
+		return nil
+	}
+	fmt.Println("Throwing a Pokeball at " + pokemon + "...")
+	url := "https://pokeapi.co/api/v2/pokemon/" + pokemon
+	caught := PokemonInf{}
+	_, ok := c.cache.Cached[url]
+	if !ok {
+		resp, err := http.Get(url)
+		if err != nil {
+			return errors.New("error with connection")
+		}
+		body, err := io.ReadAll(resp.Body)
+		c.cache.Add(url, body)
+		if err != nil {
+			return errors.New("problem with reading")
+		}
+		err = json.Unmarshal(body, &caught)
+		if err != nil {
+			return errors.New("Unmarshalling error")
+		}
+		defer resp.Body.Close()
+	} else {
+		body := c.cache.Cached[url].Val
+		err := json.Unmarshal(body, &caught)
+		if err != nil {
+			return errors.New("Unmarshalling error")
+		}
+	}
+	catchChance := 100 / float64(caught.BaseExperience)
+	if catchChance > 0.8 {
+		catchChance = 0.8
+	}
+	randomValue := rand.Float64()
+	if randomValue < catchChance {
+		c.pokemons[pokemon] = caught
+		fmt.Println(pokemon + " was caught")
+		return nil
+	} 
+	fmt.Println(pokemon + " escaped!")
+	return nil	
+}
+
 func getCommands() map[string]cliCommand {
 	return map[string]cliCommand{
 		"exit": {
@@ -250,6 +306,11 @@ func getCommands() map[string]cliCommand {
 			name:        "explore",
 			decsription: "Show pokemons on 'location'",
 			callback:    commandExplore,
+		},
+		"catch": {
+			name:        "catch",
+			decsription: "Try to catch pokemon",
+			callback:    commandCatch,
 		},
 	}
 }
