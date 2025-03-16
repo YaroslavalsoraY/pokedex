@@ -38,10 +38,9 @@ type JSONresp struct {
 
 type PokemonInf struct {
 	BaseExperience int `json:"base_experience"`
-	Forms          []struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
-	} `json:"forms"`
+	Height    int `json:"height"`
+	Name          string `json:"name"`
+	Weight int `json:"weight"`
 }
 
 type AreaLocation struct {
@@ -275,9 +274,22 @@ func commandCatch(c *config, pokemon string) error {
 		c.pokemons[pokemon] = caught
 		fmt.Println(pokemon + " was caught")
 		return nil
-	} 
+	}
 	fmt.Println(pokemon + " escaped!")
-	return nil	
+	return nil
+}
+
+func commandInspect(c *config, pokemon string) error {
+	_, ok := c.pokemons[pokemon]
+	if !ok {
+		fmt.Println("Unknown pokemon")
+		return nil
+	}
+	pokeStruct := c.pokemons[pokemon]
+	fmt.Printf("Name: %s\n", pokeStruct.Name)
+	fmt.Printf("Height: %d\n", pokeStruct.Height)
+	fmt.Printf("Weight: %d\n", pokeStruct.Weight)
+	return nil
 }
 
 func getCommands() map[string]cliCommand {
@@ -311,6 +323,11 @@ func getCommands() map[string]cliCommand {
 			name:        "catch",
 			decsription: "Try to catch pokemon",
 			callback:    commandCatch,
+		},
+		"inspect": {
+			name:        "inspect",
+			decsription: "Show info about pokemon if you caught him",
+			callback:    commandInspect,
 		},
 	}
 }
