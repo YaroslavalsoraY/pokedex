@@ -37,10 +37,10 @@ type JSONresp struct {
 }
 
 type PokemonInf struct {
-	BaseExperience int `json:"base_experience"`
-	Height    int `json:"height"`
-	Name          string `json:"name"`
-	Weight int `json:"weight"`
+	BaseExperience int    `json:"base_experience"`
+	Height         int    `json:"height"`
+	Name           string `json:"name"`
+	Weight         int    `json:"weight"`
 }
 
 type AreaLocation struct {
@@ -292,6 +292,13 @@ func commandInspect(c *config, pokemon string) error {
 	return nil
 }
 
+func commandPokedex(c *config, param string) error {
+	for _, pokemon := range c.pokemons {
+		fmt.Printf("- %s\n", pokemon.Name)
+	}
+	return nil
+}
+
 func getCommands() map[string]cliCommand {
 	return map[string]cliCommand{
 		"exit": {
@@ -328,6 +335,11 @@ func getCommands() map[string]cliCommand {
 			name:        "inspect",
 			decsription: "Show info about pokemon if you caught him",
 			callback:    commandInspect,
+		},
+		"pokedex": {
+			name:        "pokedex",
+			decsription: "Show your pokemons",
+			callback:    commandPokedex,
 		},
 	}
 }
